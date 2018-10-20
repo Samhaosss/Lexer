@@ -23,8 +23,22 @@ impl CirNum<usize> {
         };
         self.value
     }
+    pub fn sub(&mut self, step: usize) -> usize {
+        if step > self.max - self.min {
+            panic!("step > max - min")
+        }
+        if step > (self.value - self.min) {
+            self.value = self.max - (step - (self.value - self.min));
+        } else {
+            self.value -= step;
+        }
+        self.value
+    }
     pub fn add_1(&mut self) -> usize {
         self.add(1usize)
+    }
+    pub fn sub_1(&mut self) -> usize {
+        self.sub(1)
     }
     pub fn get_value(&self) -> usize {
         self.value
@@ -33,5 +47,23 @@ impl CirNum<usize> {
         self.value = value;
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
 
-
+    #[test]
+    fn read_word() {
+        //let file_name = env::args().skip(1).next().unwrap();
+        let mut a = CirNum::new(0, 100, 0);
+        for i in &[99, 2, 100] {
+            a.add(*i);
+            println!("{}", a.get_value());
+        }
+        for i in &[100, 2, 99] {
+            a.sub(*i);
+            println!("{}", a.get_value());
+        }
+        assert_eq!(0, a.get_value());
+    }
+}

@@ -41,6 +41,10 @@ impl TakenReader {
     }
 
     fn read_to_buf(&mut self) -> io::Result<usize> {
+        // if self.start_pos.get_value() > self.current_buf_end.get_value() ||
+        // self.start_pos.get_value() < self.current_buf_end.get_value() + BUFSIZE{
+        //     panic!("words too long");
+        // }
         let read_size = match self.current_buf_end.get_value() {
             x if x == FIRSTBUF || x == SECONDBUF => {
                 self.input_file.read(&mut self.buf[x..x + BUFSIZE])
@@ -72,6 +76,7 @@ impl TakenReader {
             _ => panic!("startpos == endpos"),
         }
         self.start_pos.set_value(self.end_pos.get_value());
+        self.start_pos.sub_1();
         word
     }
 }
@@ -84,25 +89,23 @@ mod tests {
     #[test]
     fn read_word() {
         //let file_name = env::args().skip(1).next().unwrap();
-        let file_name = String::from("Cargo.toml");
+        let file_name = String::from("operator");
         let mut test = TakenReader::new(&file_name);
         let mut count: u32 = 0;
         loop {
             match test.read_byte() {
                 Ok(u) => {
                     if u == b' ' {
-                        println!(
-                            "{:?}",
-                            String::from_utf8(test.get_word())
-                                .unwrap()
-                                .replace("/n", "")
-                        )
+                        let mut tmp = test.get_word();
+                        tmp.pop();
+                        println!("{:?}", String::from_utf8(tmp).unwrap().replace("/n", ""));
+                        count += 1;
                     }
                 }
                 Err(_re) => break,
             }
-            count += 1;
         }
+        println!("count : {}", count);
         assert_ne!(0, count);
     }
 }
