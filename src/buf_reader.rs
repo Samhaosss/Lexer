@@ -1,10 +1,10 @@
 // use two steps buf to read from file
+use super::utils::*;
+use std::error::Error;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::Path;
-mod utils;
-use self::utils::*;
 
 const BUFSIZE: usize = 2048;
 const FULLBUFSIZE: usize = BUFSIZE * 2;
@@ -17,7 +17,7 @@ const SECONDBUF: usize = 2048;
 // will return OK with actual bytes it read or Err if file comes to EOF
 #[derive(Debug)]
 pub struct TakenReader {
-    buf: Vec<u8>,
+    buf: Vec<u8>, //buf
     input_file: File,
     start_pos: CirNum<usize>,
     end_pos: CirNum<usize>,
@@ -25,10 +25,10 @@ pub struct TakenReader {
 }
 
 impl TakenReader {
-    pub fn new(file_name: &str) -> TakenReader {
+    pub fn new(file_name: &str) -> io::Result<TakenReader> {
         let mut tmp = TakenReader {
             buf: Vec::with_capacity(FULLBUFSIZE),
-            input_file: File::open(Path::new(file_name)).expect("TakenReader consturction failed"),
+            input_file: File::open(Path::new(file_name))?,
             start_pos: CirNum::new(FIRSTBUF, FULLBUFSIZE, FIRSTBUF),
             end_pos: CirNum::new(FIRSTBUF, FULLBUFSIZE, FIRSTBUF),
             current_buf_end: CirNum::new(FIRSTBUF, FULLBUFSIZE, FIRSTBUF),
@@ -37,7 +37,7 @@ impl TakenReader {
         for _i in 0..4096 {
             tmp.buf.push(0u8);
         }
-        tmp
+        Ok(tmp)
     }
 
     fn read_to_buf(&mut self) -> io::Result<usize> {
@@ -45,6 +45,19 @@ impl TakenReader {
         // self.start_pos.get_value() < self.current_buf_end.get_value() + BUFSIZE{
         //     panic!("words too long");
         // }
+        // bugs here
+        if (self.start_pos != self.end_pos
+            && (self.start_pos.get_value() >= SECONDBUF
+                && self.current_buf_end.get_value() == SECONDBUF))
+            || (self.start_pos != self.end_pos
+                && (self.start_pos.get_value() < SECONDBUF
+                    && self.current_buf_end.get_value() == FIRSTBUF))
+        {
+            eprintln!("WORDS TOO LONG");
+            unimplemented!(); // TO simplfy problem
+        };
+
+        // position control
         let read_size = match self.current_buf_end.get_value() {
             x if x == FIRSTBUF || x == SECONDBUF => {
                 self.input_file.read(&mut self.buf[x..x + BUFSIZE])
@@ -63,9 +76,15 @@ impl TakenReader {
         self.end_pos.add_1();
         Ok(by)
     }
-
+    pub fn pass(&mut self) {
+        assert!(self.start_pos!=self.end_pos);
+        self.start_pos.set_value(self.end_pos.get_value());
+        self.start_pos.sub_1();
+    }
     pub fn get_word(&mut self) -> Vec<u8> {
+        assert!(self.start_pos!=self.end_pos);
         let mut word: Vec<u8> = Vec::new();
+        // ugly use of match
         match (self.start_pos.get_value(), self.end_pos.get_value()) {
             (mut sp, ep) if sp != ep => {
                 while sp != ep {
@@ -75,6 +94,7 @@ impl TakenReader {
             }
             _ => panic!("startpos == endpos"),
         }
+        // back 1 byte 
         self.start_pos.set_value(self.end_pos.get_value());
         self.start_pos.sub_1();
         word
@@ -84,13 +104,12 @@ impl TakenReader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
 
     #[test]
     fn read_word() {
         //let file_name = env::args().skip(1).next().unwrap();
         let file_name = String::from("operator");
-        let mut test = TakenReader::new(&file_name);
+        let mut test = TakenReader::new(&file_name).unwrap();
         let mut count: u32 = 0;
         loop {
             match test.read_byte() {
